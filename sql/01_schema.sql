@@ -30,7 +30,7 @@ CREATE TABLE `items` (
   `category_id` int unsigned NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_buyer_id (`created_at`, `id`),
+  INDEX idx_created_at_id (`created_at`, `id`),
   INDEX idx_seller_id (`seller_id`, `created_at`),
   INDEX idx_buyer_id (`buyer_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4;
