@@ -4,6 +4,7 @@ import (
 	crand "crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -22,6 +23,9 @@ import (
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var categoryMap = map[int]Category{}
+var mCategories = []Category{}
 
 const (
 	sessionName = "session_isucari"
@@ -408,7 +412,10 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 }
 
 func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err error) {
-	err = sqlx.Get(q, &category, "SELECT * FROM `categories` WHERE `id` = ?", categoryID)
+	var ok bool
+	if category, ok = categoryMap[categoryID]; !ok {
+		return Category{}, errors.New("not found")
+	}
 	if category.ParentID != 0 {
 		parentCategory, err := getCategoryByID(q, category.ParentID)
 		if err != nil {
@@ -489,6 +496,16 @@ func postInitialize(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		outputErrorMsg(w, http.StatusInternalServerError, "db error")
 		return
+	}
+	err = dbx.Select(&mCategories, "SELECT * FROM categories")
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	categoryMap = make(map[int]Category, len(mCategories))
+	for i := range mCategories {
+		categoryMap[mCategories[i].ID] = mCategories[i]
 	}
 
 	res := resInitialize{
@@ -2152,15 +2169,7 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 
 	ress.PaymentServiceURL = getPaymentServiceURL()
 
-	categories := []Category{}
-
-	err := dbx.Select(&categories, "SELECT * FROM `categories`")
-	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		return
-	}
-	ress.Categories = categories
+	ress.Categories = mCategories
 
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(ress)
