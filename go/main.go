@@ -372,9 +372,9 @@ func main() {
 	mux.HandleFunc(pat.Get("/transactions/:transaction_id"), getIndex)
 	mux.HandleFunc(pat.Get("/users/:user_id"), getIndex)
 	mux.HandleFunc(pat.Get("/users/setting"), getIndex)
+	mux.HandleFunc(pat.Get("/debug/pprof/profile"), pprof.Profile)
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
-	mux.HandleFunc(pat.Get("/debug/pprof/profile"), pprof.Profile)
 	log.Fatal(http.ListenAndServe(":8000", mux))
 }
 
