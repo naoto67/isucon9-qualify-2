@@ -948,11 +948,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	users := []*User{}
-	if err = tx.Select(&users, "SELECT * FROM users WHERE id IN (?)", userIdSet.List()); err != nil {
-		if err != nil {
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			tx.Rollback()
-			return
+	if len(userIdSet.List()) != 0 {
+		if err = tx.Select(&users, "SELECT * FROM users WHERE id IN (?)", userIdSet.List()); err != nil {
+			if err != nil {
+				outputErrorMsg(w, http.StatusInternalServerError, "db error")
+				tx.Rollback()
+				return
+			}
 		}
 	}
 	userIdMap := make(map[int64]User, len(users))
