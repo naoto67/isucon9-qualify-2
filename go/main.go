@@ -19,6 +19,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
+	"github.com/scylladb/go-set"
 	goji "goji.io"
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
@@ -928,6 +929,14 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			outputErrorMsg(w, http.StatusInternalServerError, "db error")
 			tx.Rollback()
 			return
+		}
+	}
+
+	userIdSet := set.NewInt64Set()
+	for i := range items {
+		userIdSet.Add(items[i].SellerID)
+		if items[i].BuyerID != 0 {
+			userIdSet.Add(items[i].BuyerID)
 		}
 	}
 
