@@ -936,11 +936,13 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userIdSet := set.NewInt64Set()
+	itemIdSet := set.NewInt64Set()
 	for i := range items {
 		userIdSet.Add(items[i].SellerID)
 		if items[i].BuyerID != 0 {
 			userIdSet.Add(items[i].BuyerID)
 		}
+		itemIdSet.Add(items[i].ID)
 	}
 	users := []*User{}
 	userIds := userIdSet.List()
@@ -961,6 +963,26 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	userIdMap := make(map[int64]User, len(users))
 	for i := range users {
 		userIdMap[users[i].ID] = *users[i]
+	}
+
+	itemIds := itemIdSet.List()
+	transactions := make([]TransactionEvidence, 0, len(itemIds))
+	if len(itemIds) != 0 {
+		query, params, err := sqlx.In("SELECT * FROM `transaction_evidences` WHERE `item_id` IN (?)", itemIds)
+		if err != nil {
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			tx.Rollback()
+			return
+		}
+		if err = tx.Select(&transactions, query, params...); err != nil {
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			tx.Rollback()
+			return
+		}
+	}
+	tIdMap := make(map[int64]TransactionEvidence, len(transactions))
+	for i := range transactions {
+		tIdMap[transactions[i].ID] = transactions[i]
 	}
 
 	itemDetails := []ItemDetail{}
@@ -1008,16 +1030,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			itemDetail.Buyer = buyerBase.ToSimple()
 		}
 
-		transactionEvidence := TransactionEvidence{}
-		err = tx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
-		if err != nil && err != sql.ErrNoRows {
-			// It's able to ignore ErrNoRows
-			log.Print(err)
-			outputErrorMsg(w, http.StatusInternalServerError, "db error")
-			tx.Rollback()
-			return
-		}
-
+		transactionEvidence := tIdMap[item.ID]
 		if transactionEvidence.ID > 0 {
 			shipping := Shipping{}
 			err = tx.Get(&shipping, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?", transactionEvidence.ID)
