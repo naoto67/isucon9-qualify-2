@@ -717,10 +717,36 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userIdSet := set.NewInt64Set()
+	for i := range items {
+		userIdSet.Add(items[i].SellerID)
+		if items[i].BuyerID != 0 {
+			userIdSet.Add(items[i].BuyerID)
+		}
+	}
+	users := []*User{}
+	userIds := userIdSet.List()
+	if len(userIds) != 0 {
+		query, params, err := sqlx.In("SELECT * FROM `users` WHERE `id` IN (?)", userIds)
+		if err != nil {
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return
+		}
+		if err = dbx.Select(&users, query, params...); err != nil {
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			return
+		}
+
+	}
+	userIdMap := make(map[int64]User, len(users))
+	for i := range users {
+		userIdMap[users[i].ID] = *users[i]
+	}
+
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(dbx, item.SellerID)
-		if err != nil {
+		sellerBase, ok := userIdMap[item.SellerID]
+		if !ok {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			return
 		}
@@ -732,7 +758,7 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		itemSimples = append(itemSimples, ItemSimple{
 			ID:         item.ID,
 			SellerID:   item.SellerID,
-			Seller:     &seller,
+			Seller:     sellerBase.ToSimple(),
 			Status:     item.Status,
 			Name:       item.Name,
 			Price:      item.Price,
