@@ -982,7 +982,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 	tIdMap := make(map[int64]TransactionEvidence, len(transactions))
 	for i := range transactions {
-		tIdMap[transactions[i].ID] = transactions[i]
+		tIdMap[transactions[i].ItemID] = transactions[i]
 	}
 
 	itemDetails := []ItemDetail{}
