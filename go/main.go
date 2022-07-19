@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -373,6 +374,7 @@ func main() {
 	mux.HandleFunc(pat.Get("/users/setting"), getIndex)
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
+	mux.HandleFunc(pat.Get("/debug/pprof/profile"), pprof.Profile)
 	log.Fatal(http.ListenAndServe(":8000", mux))
 }
 
