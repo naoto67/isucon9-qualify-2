@@ -324,7 +324,6 @@ func main() {
 	defer dbx.Close()
 	dbx.DB.SetMaxIdleConns(512)
 	dbx.DB.SetMaxOpenConns(512)
-	dbx.DB.SetConnMaxIdleTime(1 * time.Hour)
 
 	mux := goji.NewMux()
 
