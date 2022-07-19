@@ -85,6 +85,14 @@ type User struct {
 	CreatedAt      time.Time `json:"-" db:"created_at"`
 }
 
+func (user *User) ToSimple() *UserSimple {
+	return &UserSimple{
+		ID:           user.ID,
+		AccountName:  user.AccountName,
+		NumSellItems: user.NumSellItems,
+	}
+}
+
 type UserSimple struct {
 	ID           int64  `json:"id"`
 	AccountName  string `json:"account_name"`
@@ -939,11 +947,23 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			userIdSet.Add(items[i].BuyerID)
 		}
 	}
+	users := []*User{}
+	if err = tx.Select(&users, "SELECT * FROM users WHERE id IN (?)", userIdSet.List()); err != nil {
+		if err != nil {
+			outputErrorMsg(w, http.StatusInternalServerError, "db error")
+			tx.Rollback()
+			return
+		}
+	}
+	userIdMap := make(map[int64]User, len(users))
+	for i := range users {
+		userIdMap[users[i].ID] = *users[i]
+	}
 
 	itemDetails := []ItemDetail{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(tx, item.SellerID)
-		if err != nil {
+		sellerBase, ok := userIdMap[item.SellerID]
+		if !ok {
 			outputErrorMsg(w, http.StatusNotFound, "seller not found")
 			tx.Rollback()
 			return
@@ -958,7 +978,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		itemDetail := ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
-			Seller:   &seller,
+			Seller:   sellerBase.ToSimple(),
 			// BuyerID
 			// Buyer
 			Status:      item.Status,
@@ -975,14 +995,14 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if item.BuyerID != 0 {
-			buyer, err := getUserSimpleByID(tx, item.BuyerID)
-			if err != nil {
+			buyerBase, ok := userIdMap[item.BuyerID]
+			if !ok {
 				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
 				tx.Rollback()
 				return
 			}
 			itemDetail.BuyerID = item.BuyerID
-			itemDetail.Buyer = &buyer
+			itemDetail.Buyer = buyerBase.ToSimple()
 		}
 
 		transactionEvidence := TransactionEvidence{}
